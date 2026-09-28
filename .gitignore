@@ -1,0 +1,33 @@
+# Local system files
+.DS_Store
+
+# Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Local environment settings
+.env
+.env.*
+!.env.example
+
+# Data and generated results
+/data/*
+!/data/.gitkeep
+/results/*
+!/results/.gitkeep
+
+# Local feasibility study artifacts
+/FEASIBILITY_*
+
+# Local implementation plan
+/TIME_SERIES_IMPLEMENTATION_PLAN.md

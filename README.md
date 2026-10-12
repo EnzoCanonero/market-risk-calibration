@@ -54,7 +54,8 @@ results/                      Generated outputs (ignored by Git)
 .github/workflows/            Tests, lint and type checks in CI
 ```
 
-`configs/`, `experiments/` and `docs/` currently contain placeholders.
+`experiments/simulation/` contains the stationary and scale-change generators.
+`configs/` and `docs/` currently contain placeholders.
 
 **Local development**
 
@@ -65,6 +66,6 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
 python -m pytest
-python -m ruff check src tests
+python -m ruff check src experiments tests
 python -m mypy
 ```

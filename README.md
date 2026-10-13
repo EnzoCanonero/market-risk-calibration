@@ -29,24 +29,25 @@ $$
 \ell_t = (r_t - L_t)(\alpha - e_t).
 $$
 
-This penalizes errors on both sides of the bound, with greater weight on downside misses. Evaluation also covers breach rate, local coverage error over 250 observations, and non-finite forecasts. Focused tests check data conventions, calibration arithmetic, metrics and chronology; CI runs pytest, Ruff and mypy. The full studies and final report are still to be implemented.
+This penalizes errors on both sides of the bound, with greater weight on downside misses. Evaluation also covers breach rate, local coverage error over 250 observations, and non-finite forecasts. Focused tests check the shared core; CI runs pytest, Ruff and mypy.
+
+The primary simulation compares rolling calibration and ACI on stationary returns, volatility changes and changes in distribution shape at constant variance. It uses 200 paired trajectories per scenario, W=500 and gamma=0.001. Known distributions let us measure true breach-probability error alongside loss and observed coverage. Summaries include trajectory-level Monte Carlo uncertainty; the full sensitivity study and historical comparison remain to be implemented.
 
 **Next milestones**
 
-1. Generate and validate stationary scenarios and changes in volatility or distribution shape.
-2. Run the first paired comparison of rolling calibration and ACI.
-3. Complete the simulation grid, with uncertainty estimates and analysis after regime changes.
-4. Add GARCH-t volatility forecasting, monthly refits and an EWMA fallback.
-5. Add one quantile boosting model, lagged features and conformal calibration.
-6. Compare rolling/ACI for the three volatility models and raw/rolling/ACI for ML, with common dates, bootstrap uncertainty and fixed sensitivity checks.
-7. Produce the final report: two tables, three figures and reproduction commands.
+1. Add the simulation notebook to explain the primary comparison and interpret its results.
+2. Complete the simulation grid and analysis after regime changes.
+3. Add GARCH-t volatility forecasting, monthly refits and an EWMA fallback.
+4. Add one quantile boosting model, lagged features and conformal calibration.
+5. Compare rolling/ACI for the three volatility models and raw/rolling/ACI for ML, with common dates, bootstrap uncertainty and fixed sensitivity checks.
+6. Produce the final report: two tables, three figures and reproduction commands.
 
 **Repository structure**
 
 ```text
 src/market_risk_calibration/  Data, forecasting, calibration and evaluation
 tests/                        Correctness and chronology checks
-configs/                      Study configuration
+configs/                      Unused placeholder
 experiments/                  Simulation, historical study and report commands
 docs/                         Methodology notes
 data/                         Local snapshots (ignored by Git)
@@ -55,7 +56,7 @@ results/                      Generated outputs (ignored by Git)
 ```
 
 `experiments/simulation/` contains stationary, scale-change and constant-variance
-shape-change generators, with their theoretical quantiles and CDFs.
+shape-change generators and the primary comparison runner.
 `configs/` and `docs/` currently contain placeholders.
 
 **Local development**
@@ -70,3 +71,15 @@ python -m pytest
 python -m ruff check src experiments tests
 python -m mypy
 ```
+
+Run the primary simulation from the repository root:
+
+```bash
+python -m experiments.simulation.run
+```
+
+Fixed settings are at the top of `experiments/simulation/run.py`. The command writes
+`replications.csv`, `summary.csv` and `metadata.json` under the gitignored
+`results/simulation/`, replacing the previous outputs there. Differences are rolling
+minus ACI; positive error/loss differences favor ACI. Non-finite outcomes remain in
+the results and affected summaries have no confidence interval.

@@ -54,7 +54,8 @@ results/                      Generated outputs (ignored by Git)
 .github/workflows/            Tests, lint and type checks in CI
 ```
 
-`experiments/simulation/` contains the stationary and scale-change generators.
+`experiments/simulation/` contains stationary, scale-change and constant-variance
+shape-change generators, with their theoretical quantiles and CDFs.
 `configs/` and `docs/` currently contain placeholders.
 
 **Local development**

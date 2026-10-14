@@ -9,7 +9,11 @@ description = "A focused study of calibration for market-risk forecasts"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [{name = "Enzo Canonero"}]
-dependencies = ["pandas==2.3.3"]
+dependencies = [
+    "numpy==2.0.2",
+    "pandas==2.3.3",
+    "scipy==1.13.1",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -17,6 +21,11 @@ dev = [
     "pandas-stubs==2.2.2.240807",
     "pytest==8.4.2",
     "ruff==0.16.9",
+]
+notebooks = [
+    "ipykernel==6.29.5",
+    "matplotlib==3.9.4",
+    "nbconvert==7.16.6",
 ]
 
 [tool.setuptools.packages.find]
@@ -35,6 +44,11 @@ select = ["E4", "E7", "E9", "F"]
 [tool.mypy]
 python_version = "3.9"
 mypy_path = "src"
-files = ["src/market_risk_calibration", "tests"]
+files = ["src/market_risk_calibration", "experiments", "tests"]
 disallow_untyped_defs = true
 explicit_package_bases = true
+
+# SciPy 1.13 has no type stubs compatible with Python 3.9.
+[[tool.mypy.overrides]]
+module = ["scipy.*"]
+ignore_missing_imports = true

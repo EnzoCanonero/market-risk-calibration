@@ -1,0 +1,2 @@
+# Keep notebook reports out of GitHub language statistics.
+*.ipynb -linguist-detectable

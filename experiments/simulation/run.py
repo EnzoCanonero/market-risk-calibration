@@ -10,6 +10,7 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
 from experiments.simulation.scenarios import (
     generate_scale_scenario,
@@ -25,6 +26,7 @@ from market_risk_calibration.volatility import expanding_volatility, ewma_volati
 ALPHA = 0.05
 WINDOW = 500
 GAMMA = 0.001
+RAW_QUANTILE = float(norm.ppf(ALPHA))
 REPLICATIONS = 200
 WARMUP = 1000
 CALIBRATION_SIZE = 1000
@@ -92,12 +94,20 @@ def run_replication(replication: int) -> pd.DataFrame:
 
         # Each method receives the same returns and archived scale forecasts.
         for model_name, volatility in models.items():
-            for method, gamma in (("rolling", 0.0), ("aci", GAMMA)):
-                forecasts = sequential_forecasts(
-                    returns, volatility, warmup=WARMUP,
-                    calibration_size=CALIBRATION_SIZE, window=WINDOW,
-                    alpha=ALPHA, gamma=gamma,
-                )
+            for method, gamma in (("raw", float("nan")), ("rolling", 0.0), ("aci", GAMMA)):
+                if method == "raw":
+                    bounds = volatility.iloc[evaluation_start:] * RAW_QUANTILE
+                    forecasts = pd.DataFrame({
+                        "return": evaluation["return"],
+                        "bound": bounds,
+                        "breach": evaluation["return"] < bounds,
+                    })
+                else:
+                    forecasts = sequential_forecasts(
+                        returns, volatility, warmup=WARMUP,
+                        calibration_size=CALIBRATION_SIZE, window=WINDOW,
+                        alpha=ALPHA, gamma=gamma,
+                    )
                 metrics = summarize_forecasts(
                     forecasts, alpha=ALPHA, coverage_window=COVERAGE_WINDOW,
                 )
@@ -123,7 +133,7 @@ def run_replication(replication: int) -> pd.DataFrame:
                     "scenario": scenario_name,
                     "model": model_name,
                     "method": method,
-                    "window": WINDOW,
+                    "window": float("nan") if method == "raw" else WINDOW,
                     "gamma": gamma,
                 }
                 record.update(metrics)
@@ -135,18 +145,23 @@ def run_replication(replication: int) -> pd.DataFrame:
 def summarize_replications(replications: pd.DataFrame) -> pd.DataFrame:
     records: list[dict[str, Union[str, int, float]]] = []
     for (scenario, model), group in replications.groupby(["scenario", "model"], sort=False):
+        raw = group.loc[group["method"] == "raw"]
+        raw = raw.set_index("replication", verify_integrity=True).sort_index()
         rolling = group.loc[group["method"] == "rolling"]
         rolling = rolling.set_index("replication", verify_integrity=True).sort_index()
         aci = group.loc[group["method"] == "aci"]
         aci = aci.set_index("replication", verify_integrity=True).sort_index()
-        if not rolling.index.equals(aci.index):
-            raise ValueError("Rolling and ACI must use the same replications.")
+        if not raw.index.equals(rolling.index) or not rolling.index.equals(aci.index):
+            raise ValueError("Raw, rolling and ACI must use the same replications.")
 
         for metric in METRICS:
             # Subtract within each trajectory before estimating uncertainty.
             comparisons = {
+                "raw": raw[metric],
                 "rolling": rolling[metric],
                 "aci": aci[metric],
+                "raw_minus_rolling": raw[metric] - rolling[metric],
+                "raw_minus_aci": raw[metric] - aci[metric],
                 "rolling_minus_aci": rolling[metric] - aci[metric],
             }
             for comparison, values in comparisons.items():
@@ -184,6 +199,12 @@ def save_results(replications: pd.DataFrame, summary: pd.DataFrame) -> None:
         "alpha": ALPHA,
         "window": WINDOW,
         "gamma": GAMMA,
+        "methods": ["raw", "rolling", "aci"],
+        "raw_forecast": {
+            "distribution": "standard_normal",
+            "mean": 0.0,
+            "standardized_quantile": RAW_QUANTILE,
+        },
         "replications": REPLICATIONS,
         "warmup": WARMUP,
         "calibration_size": CALIBRATION_SIZE,
@@ -223,7 +244,10 @@ def save_results(replications: pd.DataFrame, summary: pd.DataFrame) -> None:
             "scipy": version("scipy"),
         },
         "evaluation": "Whole evaluation period; primary settings and regime schedule only.",
-        "differences": "Rolling minus ACI, paired by replication; positive favors ACI for errors/losses.",
+        "differences": (
+            "Raw minus rolling, raw minus ACI, and rolling minus ACI, paired by replication; "
+            "positive favors the second method for errors/losses."
+        ),
         "intervals": "Pointwise 95% normal intervals across trajectories: mean +/- 1.96 MC SE.",
         "non_finite": "Retained in estimates; MC SE and intervals unavailable for affected groups.",
     }

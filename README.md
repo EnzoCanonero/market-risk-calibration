@@ -11,7 +11,9 @@ $$
 
 A breach has $e_t=1$; otherwise $e_t=0$. A very conservative threshold can reduce breaches while giving poor quantile estimates, so breach frequency alone cannot establish forecast quality.
 
-Rolling conformal calibration adjusts the risk threshold using recent deviations from a base forecast, with a fixed calibration level $\alpha_t=\alpha$. Adaptive Conformal Inference (ACI) starts at the same level and updates it after each observed return:
+The comparison follows **raw → rolling → ACI**: what does calibration add to the original forecast, and what does adaptive feedback add beyond rolling? In simulation, the raw benchmark assumes Gaussian innovations and uses $L_t^{\mathrm{raw}}\approx-1.645\,\hat\sigma_t$, where $\hat\sigma_t$ is the volatility forecast.
+
+Rolling conformal calibration estimates the tail from recent returns standardized by their forecast volatility, at a fixed calibration level $\alpha_t=\alpha$. Adaptive Conformal Inference (ACI) starts at the same level and updates it after each observed return:
 
 $$
 \alpha_{t+1} = \alpha_t + \gamma(\alpha - e_t).
@@ -19,7 +21,7 @@ $$
 
 The step size $\gamma>0$ controls responsiveness. A breach lowers the calibration level, pushing toward a more conservative bound. The study compares quantile accuracy and coverage, both overall and over recent observations.
 
-Historical returns use a frozen Fama/French daily-factor snapshot covering July 1926 to August 2026, with market returns constructed as `(Mkt-RF + RF) / 100`. Controlled simulations will provide known risk probabilities; the historical study will examine practical trade-offs in an exploratory comparison on one market series.
+Historical returns use a frozen Fama/French daily-factor snapshot covering July 1926 to August 2026, with market returns constructed as `(Mkt-RF + RF) / 100`. Controlled simulations provide known risk probabilities; the historical study will examine practical trade-offs in an exploratory comparison on one market series.
 
 **Implemented so far**
 
@@ -31,16 +33,17 @@ $$
 
 This penalizes errors on both sides of the bound, with greater weight on downside misses. Evaluation also covers breach rate, local coverage error over 250 observations, and non-finite forecasts. Focused tests check the shared core; CI runs pytest, Ruff and mypy.
 
-The primary simulation compares rolling calibration and ACI on stationary returns, volatility changes and changes in distribution shape at constant variance. It uses 200 paired trajectories per scenario, W=500 and gamma=0.001. Known distributions let us measure true breach-probability error alongside loss and observed coverage. Summaries include trajectory-level Monte Carlo uncertainty; the full sensitivity study and historical comparison remain to be implemented.
+The primary simulation compares raw Gaussian forecasts, rolling calibration and ACI on stationary Student-t returns, changes in their volatility, and shape changes at constant variance. It uses 200 paired trajectories per scenario, a calibration window W=500 and ACI step size gamma=0.001. Known distributions let us measure true breach-probability error alongside loss and observed coverage.
+
+At these settings, rolling improves risk accuracy over raw with expanding volatility under scale changes and with changing tail shape. Raw is more accurate with EWMA or known volatility in the Student-t scenarios. ACI improves local observed coverage over rolling in every case, but improves both risk metrics only under large scale changes with expanding volatility. The [simulation notebook](experiments/simulation/analysis.ipynb) presents the evidence, paired Monte Carlo uncertainty and exploratory limitations. Sensitivity analysis and the historical comparison remain to be implemented.
 
 **Next milestones**
 
-1. Add the simulation notebook to explain the primary comparison and interpret its results.
-2. Complete the simulation grid and analysis after regime changes.
-3. Add GARCH-t volatility forecasting, monthly refits and an EWMA fallback.
-4. Add one quantile boosting model, lagged features and conformal calibration.
-5. Compare rolling/ACI for the three volatility models and raw/rolling/ACI for ML, with common dates, bootstrap uncertainty and fixed sensitivity checks.
-6. Produce the final report: two tables, three figures and reproduction commands.
+1. Complete the simulation grid and analysis after regime changes.
+2. Add GARCH-t volatility forecasting, monthly refits and an EWMA fallback.
+3. Add one quantile boosting model, lagged features and conformal calibration.
+4. Compare raw/rolling/ACI for all four forecasters on common dates, with bootstrap uncertainty and fixed sensitivity checks. Raw uses Gaussian quantiles for expanding/EWMA, fitted Student-t quantiles for GARCH-t, and the directly predicted quantile for ML.
+5. Complete a compact report across the simulation and historical notebooks, with conclusions, tables, figures and reproduction commands.
 
 **Repository structure**
 
@@ -56,7 +59,7 @@ results/                      Generated outputs (ignored by Git)
 ```
 
 `experiments/simulation/` contains stationary, scale-change and constant-variance
-shape-change generators and the primary comparison runner.
+shape-change generators, the primary comparison runner and its analysis notebook.
 `configs/` and `docs/` currently contain placeholders.
 
 **Local development**
@@ -80,6 +83,21 @@ python -m experiments.simulation.run
 
 Fixed settings are at the top of `experiments/simulation/run.py`. The command writes
 `replications.csv`, `summary.csv` and `metadata.json` under the gitignored
-`results/simulation/`, replacing the previous outputs there. Differences are rolling
-minus ACI; positive error/loss differences favor ACI. Non-finite outcomes remain in
-the results and affected summaries have no confidence interval.
+`results/simulation/`, replacing the previous outputs there. Paired differences are
+raw minus rolling, raw minus ACI, and rolling minus ACI; positive error/loss differences
+favor the second method. Non-finite outcomes remain in the results and affected
+summaries have no confidence interval.
+
+The notebook reads these saved outputs and contains four scenario tables and two figures for browsing
+on GitHub. To execute it locally, install the notebook dependencies and select the
+`.venv` kernel in your editor:
+
+```bash
+python -m pip install -e ".[notebooks]"
+```
+
+After generating the simulation outputs, it can also be executed from the repository root:
+
+```bash
+python -m jupyter nbconvert --to notebook --execute --inplace experiments/simulation/analysis.ipynb
+```
